@@ -73,3 +73,8 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 **.DS_STORE
+
+*.wav
+*.skp
+*.wav.meta
+*.png.meta
