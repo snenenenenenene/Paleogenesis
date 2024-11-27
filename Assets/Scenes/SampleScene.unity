@@ -801,6 +801,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1330002212829201895, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6629134917151902863}
+    - targetCorrespondingSourceObject: {fileID: 1330002212829201895, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6629134917151902865}
+    - targetCorrespondingSourceObject: {fileID: 1330002212829201895, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6629134917151902864}
     - targetCorrespondingSourceObject: {fileID: 7722118549929746003, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
       insertIndex: -1
       addedObject: {fileID: 900092260}
@@ -1021,6 +1027,11 @@ MonoBehaviour:
   heartbeatAudio: {fileID: 6629134917151902850}
   heavyBreathingAudio: {fileID: 6629134917151902851}
   postProcessVolume: {fileID: 1760210969}
+--- !u!82 &6629134917151902854 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 1030088161649257963, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
+  m_PrefabInstance: {fileID: 3079608571624919109}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &6629134917151902862
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1051,6 +1062,56 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 978662897}
   m_Enabled: 1
+--- !u!114 &6629134917151902864
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 978662897}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7748c4301326c43ab8c218474d8a627a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  footstepAudioSource: {fileID: 6629134917151902854}
+  defaultWalkSounds: []
+  defaultRunSounds: []
+  defaultJumpSounds: []
+  walkStepInterval: 0.5
+  runStepInterval: 0.3
+  defaultLandSound: {fileID: 8300000, guid: b995bc1775ea83b4b8f861763e9a1424, type: 3}
+  grassWalkSounds: []
+  grassRunSounds: []
+  grassJumpSounds: []
+  runThreshold: 5
+  movementSpeed: 0
+--- !u!143 &6629134917151902865
+CharacterController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 978662897}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Height: 2
+  m_Radius: 0.5
+  m_SlopeLimit: 45
+  m_StepOffset: 0.3
+  m_SkinWidth: 0.08
+  m_MinMoveDistance: 0.001
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
