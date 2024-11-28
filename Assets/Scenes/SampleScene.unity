@@ -760,7 +760,15 @@ PrefabInstance:
       value: Player
       objectReference: {fileID: 0}
     - target: {fileID: 2706543309135695867, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
+      propertyPath: m_Constraints
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2706543309135695867, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
       propertyPath: m_Interpolate
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2706543309135695867, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
+      propertyPath: m_CollisionDetection
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5718004225411405810, guid: 6778856d097594b2093dcdb81c7465ce, type: 3}
