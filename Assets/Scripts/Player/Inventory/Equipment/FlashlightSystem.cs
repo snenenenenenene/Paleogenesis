@@ -17,6 +17,10 @@ public class FlashlightSystem : MonoBehaviour
     public float batteryDrainRate = 10f; // Battery drain per second when the flashlight is on
     private float currentBatteryLife;
 
+    [Header("Audio Settings")]
+    public AudioSource audioSource; // Audio source for playing sound effects
+    public AudioClip toggleSound; // Sound effect for toggling flashlight
+
     private bool isFlashlightOn;
     private Vector3 targetPosition;
 
@@ -35,6 +39,11 @@ public class FlashlightSystem : MonoBehaviour
         {
             Debug.LogError("Camera Transform is not assigned! Please assign the player's camera.");
             return;
+        }
+
+        if (audioSource == null)
+        {
+            Debug.LogError("AudioSource is not assigned! Please attach an AudioSource component.");
         }
 
         flashlight.enabled = false; // Ensure the flashlight starts off
@@ -61,6 +70,12 @@ public class FlashlightSystem : MonoBehaviour
         {
             isFlashlightOn = !isFlashlightOn;
             flashlight.enabled = isFlashlightOn;
+
+            // Play toggle sound
+            if (audioSource != null && toggleSound != null)
+            {
+                audioSource.PlayOneShot(toggleSound);
+            }
 
             if (useBattery && currentBatteryLife <= 0f)
             {

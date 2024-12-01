@@ -39,8 +39,6 @@ public class PlayerController : MonoBehaviour
         playerAttributes.currentHealth = playerAttributes.maxHealth;
         playerAttributes.currentStamina = playerAttributes.maxStamina;
 
-        Debug.Log($"Starting Health: {playerAttributes.currentHealth} / {playerAttributes.maxHealth}");
-        Debug.Log($"Starting Stamina: {playerAttributes.currentStamina} / {playerAttributes.maxStamina}");
     }
 
     void Update()
@@ -85,7 +83,6 @@ public class PlayerController : MonoBehaviour
                 {
                     canSprint = true;
                     cooldownTimer = 0f;  // Reset cooldown timer
-                    Debug.Log("Sprinting is now available again.");
                 }
             }
         }
@@ -139,7 +136,6 @@ public class PlayerController : MonoBehaviour
 
     private void HandleStamina()
     {
-        Debug.Log($"isRunning: {isRunning}, Current Stamina: {playerAttributes.currentStamina}");
 
         // Handle stamina drain while sprinting
         if (isRunning)
@@ -165,8 +161,6 @@ public class PlayerController : MonoBehaviour
                 Debug.Log("Stamina fully regenerated.");
             }
         }
-
-        Debug.Log($"Current Stamina after HandleStamina: {playerAttributes.currentStamina} / {playerAttributes.maxStamina}");
     }
 
     public bool HasStamina(float amount = 0)
