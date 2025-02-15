@@ -9,6 +9,9 @@ public class PlayerMovement : MonoBehaviour
     public float crouchSpeed = 3f;
     public float jumpForce = 5f;
     public float gravity = -9.81f;
+    public float swimSpeed = 4f;
+    public float swimUpForce = 5f;
+    public float underwaterDrag = 3f;
     
     [Header("Mouse Look Settings")]
     public float mouseSensitivity = 2f;
@@ -20,11 +23,13 @@ public class PlayerMovement : MonoBehaviour
     public float walkingSoundLevel = 1f;
     public float sprintingSoundLevel = 2f;
     public float crouchingSoundLevel = 0.5f;
+    public float swimmingSoundLevel = 0.8f;
     
     [Header("Stamina")]
     public float maxStamina = 100f;
     public float staminaDrainRate = 20f;
     public float staminaRegenRate = 10f;
+    public float underwaterStaminaDrainRate = 15f;
     
     private CharacterController controller;
     private Camera playerCamera;
@@ -32,9 +37,12 @@ public class PlayerMovement : MonoBehaviour
     private bool isGrounded;
     private bool isCrouching;
     private bool isSprinting;
+    private bool isInWater;
+    private bool isUnderwater;
     private float currentStamina;
     private float currentNoiseLevel;
     private float verticalRotation = 0f;
+    private float waterSurfaceHeight;
     
     private void Start()
     {
@@ -50,7 +58,16 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         HandleMouseLook();
-        HandleMovement();
+        
+        if (isInWater)
+        {
+            HandleSwimming();
+        }
+        else
+        {
+            HandleMovement();
+        }
+        
         HandleStamina();
         UpdateNoiseLevel();
         
@@ -77,6 +94,69 @@ public class PlayerMovement : MonoBehaviour
         verticalRotation += invertY ? mouseY : -mouseY;
         verticalRotation = Mathf.Clamp(verticalRotation, minVerticalAngle, maxVerticalAngle);
         playerCamera.transform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
+    }
+    
+    private void HandleSwimming()
+    {
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
+        
+        Vector3 move = transform.right * x + transform.forward * z;
+        
+        // Vertical swimming movement
+        if (Input.GetKey(KeyCode.Space)) // Swim up
+        {
+            velocity.y = swimUpForce;
+        }
+        else if (Input.GetKey(KeyCode.LeftControl)) // Swim down
+        {
+            velocity.y = -swimUpForce;
+        }
+        else
+        {
+            velocity.y = 0f;
+        }
+        
+        // Apply swimming movement
+        controller.Move(move * swimSpeed * Time.deltaTime);
+        controller.Move(velocity * Time.deltaTime);
+        
+        // Check if underwater
+        isUnderwater = transform.position.y + controller.height * 0.5f < waterSurfaceHeight;
+        
+        // Drain stamina while underwater
+        if (isUnderwater)
+        {
+            currentStamina -= underwaterStaminaDrainRate * Time.deltaTime;
+            
+            // Force player to surface if out of stamina
+            if (currentStamina <= 0)
+            {
+                velocity.y = swimUpForce;
+            }
+        }
+    }
+    
+    public void EnterWater()
+    {
+        isInWater = true;
+        velocity.y = 0f; // Reset vertical velocity
+        
+        // Store water surface height
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position + Vector3.up * 10f, Vector3.down, out hit, 20f))
+        {
+            if (hit.collider.CompareTag("Water"))
+            {
+                waterSurfaceHeight = hit.point.y;
+            }
+        }
+    }
+    
+    public void ExitWater()
+    {
+        isInWater = false;
+        isUnderwater = false;
     }
     
     private void HandleMovement()
@@ -127,9 +207,10 @@ public class PlayerMovement : MonoBehaviour
     
     private void HandleStamina()
     {
-        if (isSprinting)
+        if (isSprinting || isUnderwater)
         {
-            currentStamina -= staminaDrainRate * Time.deltaTime;
+            float drainRate = isUnderwater ? underwaterStaminaDrainRate : staminaDrainRate;
+            currentStamina -= drainRate * Time.deltaTime;
         }
         else
         {
@@ -143,7 +224,9 @@ public class PlayerMovement : MonoBehaviour
     {
         if (controller.velocity.magnitude > 0.1f)
         {
-            if (isSprinting)
+            if (isInWater)
+                currentNoiseLevel = swimmingSoundLevel;
+            else if (isSprinting)
                 currentNoiseLevel = sprintingSoundLevel;
             else if (isCrouching)
                 currentNoiseLevel = crouchingSoundLevel;
@@ -164,5 +247,10 @@ public class PlayerMovement : MonoBehaviour
     public float GetStaminaPercentage()
     {
         return currentStamina / maxStamina;
+    }
+    
+    public bool IsUnderwater()
+    {
+        return isUnderwater;
     }
 }
