@@ -256,9 +256,9 @@ public class CitySceneGenerator : EditorWindow
         waterArea.name = "WaterArea";
         
         // Position the water area outside the city (assuming city is centered at 0,0)
-        // Raise it slightly above ground level for better accessibility
-        waterArea.transform.position = new Vector3(120f, 0f, 120f);
-        waterArea.transform.localScale = new Vector3(40f, 2f, 40f);
+        // Raise it higher for better testing
+        waterArea.transform.position = new Vector3(120f, 2f, 120f); // Raised from 0f to 2f
+        waterArea.transform.localScale = new Vector3(40f, 4f, 40f); // Increased depth from 2f to 4f
         
         // Create containing walls for the water area
         CreateWaterContainment(waterArea.transform.position, waterArea.transform.localScale);
@@ -291,7 +291,7 @@ public class CitySceneGenerator : EditorWindow
         // Create water surface for better visuals
         GameObject waterSurface = GameObject.CreatePrimitive(PrimitiveType.Quad);
         waterSurface.name = "WaterSurface";
-        waterSurface.transform.position = new Vector3(120f, 1f, 120f); // Slightly above water level
+        waterSurface.transform.position = new Vector3(120f, 4f, 120f); // Adjusted to be at the top of the water
         waterSurface.transform.localScale = new Vector3(40f, 40f, 1f);
         waterSurface.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         
@@ -307,7 +307,7 @@ public class CitySceneGenerator : EditorWindow
     
     private void CreateWaterContainment(Vector3 waterPosition, Vector3 waterScale)
     {
-        float wallHeight = 4f; // Higher than water depth
+        float wallHeight = 6f; // Increased from 4f to 6f to match deeper water
         float wallThickness = 1f;
         
         // Create parent object for walls
@@ -354,10 +354,10 @@ public class CitySceneGenerator : EditorWindow
         GameObject ramp = GameObject.CreatePrimitive(PrimitiveType.Cube);
         ramp.transform.SetParent(parent);
         
-        // Position the ramp on the south side
-        ramp.transform.localPosition = new Vector3(0, -1f, -waterScale.z/2 - 5f);
-        ramp.transform.localScale = new Vector3(10f, 0.5f, 10f);
-        ramp.transform.localRotation = Quaternion.Euler(-15f, 0, 0); // Angle the ramp for easy access
+        // Position the ramp on the south side, adjusted for higher water level
+        ramp.transform.localPosition = new Vector3(0, -2f, -waterScale.z/2 - 5f);
+        ramp.transform.localScale = new Vector3(10f, 0.5f, 15f); // Made ramp longer
+        ramp.transform.localRotation = Quaternion.Euler(-20f, 0, 0); // Steeper angle to reach higher water
         
         // Add material
         Shader standardShader = Shader.Find("Universal Render Pipeline/Lit");
@@ -365,7 +365,7 @@ public class CitySceneGenerator : EditorWindow
         if (standardShader != null)
         {
             Material rampMaterial = new Material(standardShader);
-            rampMaterial.color = new Color(0.4f, 0.4f, 0.4f); // Light gray
+            rampMaterial.color = new Color(0.4f, 0.4f, 0.4f);
             ramp.GetComponent<Renderer>().material = rampMaterial;
         }
     }
@@ -563,9 +563,23 @@ public class CitySceneGenerator : EditorWindow
             
             // Add required components
             CharacterController controller = player.AddComponent<CharacterController>();
-            controller.height = 1.8f; // Standard human height
+            controller.height = 1.8f;
             controller.radius = 0.3f;
-            controller.center = new Vector3(0, 0.9f, 0); // Center at half height
+            controller.center = new Vector3(0, 0.9f, 0);
+            
+            // Create camera holder (this will handle bobbing)
+            GameObject cameraHolder = new GameObject("CameraHolder");
+            cameraHolder.transform.SetParent(player.transform);
+            cameraHolder.transform.localPosition = new Vector3(0, 1.6f, 0);
+            
+            // Add camera to holder
+            GameObject cameraObj = new GameObject("Main Camera");
+            Camera camera = cameraObj.AddComponent<Camera>();
+            camera.nearClipPlane = 0.01f;
+            camera.fieldOfView = 90f;
+            cameraObj.AddComponent<AudioListener>();
+            cameraObj.transform.SetParent(cameraHolder.transform);
+            cameraObj.transform.localPosition = Vector3.zero;
             
             player.AddComponent<PlayerMovement>();
             player.AddComponent<SanitySystem>();
@@ -581,7 +595,7 @@ public class CitySceneGenerator : EditorWindow
             GameObject playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             playerModel.name = "Body";
             playerModel.transform.SetParent(playerModelContainer.transform);
-            playerModel.transform.localPosition = new Vector3(0, 0.9f, 0); // Position at half height
+            playerModel.transform.localPosition = new Vector3(0, 0.9f, 0);
             playerModel.transform.localScale = new Vector3(0.6f, 0.9f, 0.6f);
             
             // Add material to player model
@@ -590,7 +604,7 @@ public class CitySceneGenerator : EditorWindow
             if (standardShader != null)
             {
                 Material playerMat = new Material(standardShader);
-                playerMat.color = new Color(0.2f, 0.6f, 1f); // Blue color
+                playerMat.color = new Color(0.2f, 0.6f, 1f);
                 playerModel.GetComponent<Renderer>().material = playerMat;
             }
             
@@ -598,15 +612,6 @@ public class CitySceneGenerator : EditorWindow
             GameObject head = new GameObject("Head");
             head.transform.SetParent(playerModelContainer.transform);
             head.transform.localPosition = new Vector3(0, 1.6f, 0);
-            
-            // Add camera to head
-            GameObject cameraObj = new GameObject("Main Camera");
-            Camera camera = cameraObj.AddComponent<Camera>();
-            camera.nearClipPlane = 0.01f; // Closer near clip plane to avoid clipping
-            camera.fieldOfView = 90f; // Wider FOV for better awareness
-            cameraObj.AddComponent<AudioListener>();
-            cameraObj.transform.SetParent(head.transform);
-            cameraObj.transform.localPosition = Vector3.zero;
             
             // Add VHS post-processing effect
             if (camera != null)

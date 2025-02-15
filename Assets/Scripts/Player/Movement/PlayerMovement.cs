@@ -7,7 +7,7 @@ public class PlayerMovement : MonoBehaviour
     public float walkSpeed = 5f;
     public float sprintSpeed = 10f;
     public float crouchSpeed = 3f;
-    public float jumpForce = 5f;
+    public float jumpForce = 2f;
     public float gravity = -9.81f;
     public float swimSpeed = 4f;
     public float swimUpForce = 5f;
@@ -25,14 +25,22 @@ public class PlayerMovement : MonoBehaviour
     public float crouchingSoundLevel = 0.5f;
     public float swimmingSoundLevel = 0.8f;
     
+    [Header("Head Bob Settings")]
+    public float bobFrequency = 2f;
+    public float bobAmplitude = 0.1f;
+    public float sprintBobMultiplier = 1.5f;
+    public float crouchBobMultiplier = 0.5f;
+    
     [Header("Stamina")]
     public float maxStamina = 100f;
-    public float staminaDrainRate = 20f;
-    public float staminaRegenRate = 10f;
+    public float staminaDrainRate = 15f;
+    public float staminaRegenRate = 8f;
+    public float staminaRegenDelay = 1f;
     public float underwaterStaminaDrainRate = 15f;
     
     private CharacterController controller;
     private Camera playerCamera;
+    private Transform cameraHolder;
     private Vector3 velocity;
     private bool isGrounded;
     private bool isCrouching;
@@ -43,12 +51,20 @@ public class PlayerMovement : MonoBehaviour
     private float currentNoiseLevel;
     private float verticalRotation = 0f;
     private float waterSurfaceHeight;
+    private float defaultCameraY;
+    private float bobTimer;
+    private float lastStaminaUseTime;
+    private float defaultCameraHolderY;
+    private float targetCameraY;
     
     private void Start()
     {
         controller = GetComponent<CharacterController>();
         playerCamera = GetComponentInChildren<Camera>();
+        cameraHolder = playerCamera.transform.parent;
         currentStamina = maxStamina;
+        defaultCameraHolderY = cameraHolder.localPosition.y;
+        targetCameraY = defaultCameraHolderY;
         
         // Lock and hide the cursor
         Cursor.lockState = CursorLockMode.Locked;
@@ -70,6 +86,7 @@ public class PlayerMovement : MonoBehaviour
         
         HandleStamina();
         UpdateNoiseLevel();
+        HandleHeadBob();
         
         // Allow cursor unlock with Escape key
         if (Input.GetKeyDown(KeyCode.Escape))
@@ -159,6 +176,36 @@ public class PlayerMovement : MonoBehaviour
         isUnderwater = false;
     }
     
+    private void HandleHeadBob()
+    {
+        if (!controller.isGrounded || isInWater) return;
+
+        Vector3 localMove = transform.InverseTransformDirection(controller.velocity);
+        float speedFactor = Mathf.Clamp01(localMove.magnitude / walkSpeed);
+        
+        if (isSprinting) speedFactor *= sprintBobMultiplier;
+        if (isCrouching) speedFactor *= crouchBobMultiplier;
+        
+        if (speedFactor > 0.01f)
+        {
+            bobTimer += Time.deltaTime * bobFrequency * speedFactor;
+            float bobAmount = Mathf.Sin(bobTimer) * bobAmplitude * speedFactor;
+            
+            // Apply bob to camera holder position
+            Vector3 camPos = cameraHolder.localPosition;
+            camPos.y = targetCameraY + bobAmount;
+            cameraHolder.localPosition = camPos;
+        }
+        else
+        {
+            // Reset camera position when not moving
+            bobTimer = 0;
+            Vector3 camPos = cameraHolder.localPosition;
+            camPos.y = Mathf.Lerp(camPos.y, targetCameraY, Time.deltaTime * 5f);
+            cameraHolder.localPosition = camPos;
+        }
+    }
+    
     private void HandleMovement()
     {
         isGrounded = controller.isGrounded;
@@ -174,35 +221,38 @@ public class PlayerMovement : MonoBehaviour
         Vector3 move = transform.right * x + transform.forward * z;
         
         // Handle movement states
-        isCrouching = Input.GetKey(KeyCode.LeftControl);
+        isCrouching = Input.GetKey(KeyCode.C);
         isSprinting = Input.GetKey(KeyCode.LeftShift) && !isCrouching && currentStamina > 0;
         
         float currentSpeed = walkSpeed;
-        if (isSprinting) currentSpeed = sprintSpeed;
+        if (isSprinting) 
+        {
+            currentSpeed = sprintSpeed;
+            lastStaminaUseTime = Time.time;
+        }
         if (isCrouching) currentSpeed = crouchSpeed;
         
         controller.Move(move * currentSpeed * Time.deltaTime);
         
-        // Handle jumping
+        // Handle jumping with reduced height
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
+            lastStaminaUseTime = Time.time;
+            currentStamina -= 10f; // Jump stamina cost
         }
         
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
         
-        // Update character height for crouching
-        if (isCrouching)
-        {
-            controller.height = 1f;
-            controller.center = new Vector3(0, 0.5f, 0);
-        }
-        else
-        {
-            controller.height = 2f;
-            controller.center = new Vector3(0, 1f, 0);
-        }
+        // Update character height and camera position for crouching
+        float targetHeight = isCrouching ? 1f : 2f;
+        float targetCenter = isCrouching ? 0.5f : 1f;
+        targetCameraY = isCrouching ? defaultCameraHolderY * 0.5f : defaultCameraHolderY;
+        
+        // Smoothly adjust controller height and center
+        controller.height = Mathf.Lerp(controller.height, targetHeight, Time.deltaTime * 10f);
+        controller.center = Vector3.Lerp(controller.center, new Vector3(0, targetCenter, 0), Time.deltaTime * 10f);
     }
     
     private void HandleStamina()
@@ -211,8 +261,9 @@ public class PlayerMovement : MonoBehaviour
         {
             float drainRate = isUnderwater ? underwaterStaminaDrainRate : staminaDrainRate;
             currentStamina -= drainRate * Time.deltaTime;
+            lastStaminaUseTime = Time.time;
         }
-        else
+        else if (Time.time - lastStaminaUseTime >= staminaRegenDelay)
         {
             currentStamina += staminaRegenRate * Time.deltaTime;
         }
