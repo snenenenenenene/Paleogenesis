@@ -36,11 +36,22 @@ public class CitySceneGenerator : EditorWindow
             player.AddComponent<PlayerMovement>();
             player.AddComponent<SanitySystem>();
             player.AddComponent<RadioSystem>();
+            player.AddComponent<FlashlightSystem>();
             
             GameObject playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             playerModel.transform.SetParent(player.transform);
             playerModel.transform.localPosition = Vector3.zero;
             playerModel.transform.localScale = new Vector3(1f, 1f, 1f);
+            
+            // Add material to player model
+            Shader standardShader = Shader.Find("Universal Render Pipeline/Lit");
+            if (standardShader == null) standardShader = Shader.Find("Standard");
+            if (standardShader != null)
+            {
+                Material playerMat = new Material(standardShader);
+                playerMat.color = new Color(0.2f, 0.6f, 1f); // Blue color
+                playerModel.GetComponent<Renderer>().material = playerMat;
+            }
             
             GameObject camera = new GameObject("MainCamera");
             camera.AddComponent<Camera>();
@@ -61,10 +72,21 @@ public class CitySceneGenerator : EditorWindow
             body.transform.localScale = new Vector3(1f, 1.2f, 2f);
             body.transform.localRotation = Quaternion.Euler(90, 0, 0);
             
+            // Add material to utahraptor
+            Shader standardShader = Shader.Find("Universal Render Pipeline/Lit");
+            if (standardShader == null) standardShader = Shader.Find("Standard");
+            if (standardShader != null)
+            {
+                Material raptorMat = new Material(standardShader);
+                raptorMat.color = new Color(0.8f, 0.2f, 0.2f); // Red color
+                body.GetComponent<Renderer>().material = raptorMat;
+            }
+            
             GameObject head = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             head.transform.SetParent(utahraptor.transform);
             head.transform.localPosition = new Vector3(0, 0.5f, 1f);
             head.transform.localScale = new Vector3(0.6f, 0.8f, 0.6f);
+            if (standardShader != null) head.GetComponent<Renderer>().material = body.GetComponent<Renderer>().material;
             
             utahraptor.AddComponent<NavMeshAgent>();
             utahraptor.AddComponent<UtahraptorAI>();
@@ -82,15 +104,27 @@ public class CitySceneGenerator : EditorWindow
             body.transform.localScale = new Vector3(1.5f, 2f, 3f);
             body.transform.localRotation = Quaternion.Euler(90, 0, 0);
             
+            // Add material to spinosaurus
+            Shader standardShader = Shader.Find("Universal Render Pipeline/Lit");
+            if (standardShader == null) standardShader = Shader.Find("Standard");
+            if (standardShader != null)
+            {
+                Material spinoMat = new Material(standardShader);
+                spinoMat.color = new Color(0.8f, 0.4f, 0.1f); // Orange color
+                body.GetComponent<Renderer>().material = spinoMat;
+            }
+            
             GameObject head = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             head.transform.SetParent(spinosaurus.transform);
             head.transform.localPosition = new Vector3(0, 1f, 1.5f);
             head.transform.localScale = new Vector3(0.8f, 1.2f, 1f);
+            if (standardShader != null) head.GetComponent<Renderer>().material = body.GetComponent<Renderer>().material;
             
             GameObject sail = GameObject.CreatePrimitive(PrimitiveType.Cube);
             sail.transform.SetParent(spinosaurus.transform);
             sail.transform.localPosition = new Vector3(0, 2f, 0);
             sail.transform.localScale = new Vector3(0.2f, 2f, 3f);
+            if (standardShader != null) sail.GetComponent<Renderer>().material = body.GetComponent<Renderer>().material;
             
             spinosaurus.AddComponent<NavMeshAgent>();
             spinosaurus.AddComponent<SpinosaurusAI>();
@@ -380,6 +414,7 @@ public class CitySceneGenerator : EditorWindow
             player.AddComponent<PlayerMovement>();
             player.AddComponent<SanitySystem>();
             player.AddComponent<RadioSystem>();
+            player.AddComponent<FlashlightSystem>();
             
             // Add capsule for visualization
             GameObject playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -553,12 +588,13 @@ public class CitySceneGenerator : EditorWindow
         missionSystem.startPoint = startPoint.transform;
         missionSystem.endPoint = endPoint.transform;
         
-        // Create direction indicator
+        // Create direction indicator (invisible)
         GameObject indicator = GameObject.CreatePrimitive(PrimitiveType.Cube);
         indicator.name = "Direction Indicator";
         indicator.transform.SetParent(player.transform);
         indicator.transform.localPosition = new Vector3(0, 2, 0);
         indicator.transform.localScale = new Vector3(0.1f, 0.1f, 0.5f);
+        indicator.GetComponent<MeshRenderer>().enabled = false; // Make it invisible
         missionSystem.directionIndicator = indicator;
         
         // Setup mission UI
