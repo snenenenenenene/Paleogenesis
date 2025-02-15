@@ -231,9 +231,9 @@ public class CitySceneGenerator : EditorWindow
     
     private void CreateCityEnvironment()
     {
-        // Create ground
+        // Create ground - make it much larger than the city
         GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.transform.localScale = new Vector3(20, 1, 20);
+        ground.transform.localScale = new Vector3(100, 1, 100); // Increased from 20 to 100
         ground.name = "Ground";
         
         // Create city blocks
@@ -397,6 +397,34 @@ public class CitySceneGenerator : EditorWindow
         }
     }
     
+    private Vector3 FindValidSpawnPosition(Vector3 desiredPosition, float radius)
+    {
+        int maxAttempts = 30;
+        Vector3 position = desiredPosition;
+        
+        // Check if the position is valid
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            bool isValid = true;
+            Collider[] colliders = Physics.OverlapSphere(position + Vector3.up, radius);
+            
+            if (colliders.Length == 0)
+            {
+                return position;
+            }
+            
+            // If position is invalid, try a new random position
+            position = new Vector3(
+                Random.Range(-100f, 100f),
+                desiredPosition.y,
+                Random.Range(-100f, 100f)
+            );
+        }
+        
+        Debug.LogWarning("Could not find valid spawn position after " + maxAttempts + " attempts");
+        return position;
+    }
+    
     private GameObject CreatePlayer()
     {
         GameObject player;
@@ -422,7 +450,9 @@ public class CitySceneGenerator : EditorWindow
             playerModel.transform.localPosition = Vector3.zero;
         }
         
-        player.transform.position = new Vector3(0, 1, 0);
+        // Find valid spawn position for player
+        Vector3 validPosition = FindValidSpawnPosition(new Vector3(0, 1, 0), 1.5f);
+        player.transform.position = validPosition;
         
         // Add camera
         GameObject cameraObj = new GameObject("Main Camera");
@@ -538,7 +568,10 @@ public class CitySceneGenerator : EditorWindow
             utahraptor.AddComponent<NavMeshAgent>();
             utahraptor.transform.localScale = new Vector3(1, 2, 3);
         }
-        utahraptor.transform.position = new Vector3(20, 1, 20);
+        
+        // Find valid spawn position for Utahraptor
+        Vector3 utahraptorPosition = FindValidSpawnPosition(new Vector3(20, 1, 20), 2f);
+        utahraptor.transform.position = utahraptorPosition;
         
         // Create Spinosaurus
         GameObject spinosaurus;
@@ -554,7 +587,10 @@ public class CitySceneGenerator : EditorWindow
             spinosaurus.AddComponent<NavMeshAgent>();
             spinosaurus.transform.localScale = new Vector3(2, 4, 6);
         }
-        spinosaurus.transform.position = new Vector3(-20, 1, -20);
+        
+        // Find valid spawn position for Spinosaurus
+        Vector3 spinoPosition = FindValidSpawnPosition(new Vector3(-20, 1, -20), 3f);
+        spinosaurus.transform.position = spinoPosition;
     }
     
     private void SetupLighting()
