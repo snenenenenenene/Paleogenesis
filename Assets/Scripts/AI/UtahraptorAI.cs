@@ -1,258 +1,163 @@
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class UtahraptorAI : MonoBehaviour
 {
-    [Header("Movement Settings")]
-    public float stalkingSpeed = 3f;
-    public float chaseSpeed = 8f;
-    public float stealthSpeed = 2f;
-    public float detectionRange = 15f;
-    public float hearingRange = 20f;
-    public float minStalkDistance = 8f;
-    public float maxStalkDistance = 12f;
+    [Header("Stalking Settings")]
+    public float stalkingSpeed = 8f;
+    public float attackingSpeed = 12f;
+    public float attackRange = 3f;
+    public float freezeDistance = 20f;
+    public float viewAngle = 90f; // Angle at which the player can be seen
+    public LayerMask obstacleLayer; // Layer for obstacles that block line of sight
     
-    [Header("Stealth Settings")]
-    public float stealthThreshold = 0.3f;
-    public float ambushProbability = 0.3f;
-    public float ambushCooldown = 15f;
-    
-    [Header("Horror Transform")]
-    public GameObject normalModel;
-    public GameObject horrorModel;
+    [Header("Attack Settings")]
+    public float attackDamage = 25f;
+    public float attackCooldown = 1.5f;
     
     private NavMeshAgent agent;
     private Transform player;
-    private PlayerMovement playerMovement;
-    private SanitySystem playerSanity;
-    private Vector3 lastKnownPosition;
-    private bool isInHorrorMode = false;
-    private bool canAmbush = true;
-    private State currentState = State.Stalking;
-    
-    private enum State
-    {
-        Stalking,
-        Chasing,
-        Ambushing,
-        Searching
-    }
+    private Camera playerCamera;
+    private bool isPlayerLooking;
+    private bool canAttack = true;
+    private float lastAttackTime;
     
     private void Start()
     {
         agent = GetComponent<NavMeshAgent>();
-        player = GameObject.FindGameObjectWithTag("Player").transform;
-        playerMovement = player.GetComponent<PlayerMovement>();
-        playerSanity = player.GetComponent<SanitySystem>();
+        player = GameObject.FindGameObjectWithTag("Player")?.transform;
         
-        // Subscribe to horror events
-        DinosaurHorrorEvent.OnHorrorStateChanged += OnHorrorStateChanged;
-        
-        StartCoroutine(StateMachine());
-        StartCoroutine(SoundCheck());
-    }
-    
-    private void OnDestroy()
-    {
-        DinosaurHorrorEvent.OnHorrorStateChanged -= OnHorrorStateChanged;
-    }
-    
-    private IEnumerator StateMachine()
-    {
-        while (true)
+        if (player == null)
         {
-            switch (currentState)
+            Debug.LogError("UtahraptorAI: Player not found!");
+            enabled = false;
+            return;
+        }
+        
+        // Find player's camera
+        playerCamera = player.GetComponentInChildren<Camera>();
+        if (playerCamera == null)
+        {
+            Debug.LogError("UtahraptorAI: Player camera not found!");
+        }
+        
+        // Set initial agent settings
+        agent.speed = stalkingSpeed;
+        agent.stoppingDistance = attackRange * 0.8f;
+    }
+    
+    private void Update()
+    {
+        if (player == null) return;
+        
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+        
+        // Check if player is looking at raptor
+        isPlayerLooking = IsPlayerLookingAtRaptor();
+        
+        // Handle movement based on player's view and distance
+        if (isPlayerLooking)
+        {
+            // Freeze when player is looking
+            agent.isStopped = true;
+            
+            // Notify the SanitySystem that player is seeing a dinosaur
+            SanitySystem sanitySystem = player.GetComponent<SanitySystem>();
+            if (sanitySystem != null)
             {
-                case State.Stalking:
-                    UpdateStalking();
-                    break;
-                case State.Chasing:
-                    UpdateChasing();
-                    break;
-                case State.Ambushing:
-                    UpdateAmbushing();
-                    break;
-                case State.Searching:
-                    UpdateSearching();
-                    break;
+                sanitySystem.OnDinosaurSighted(true);
+            }
+        }
+        else
+        {
+            // Move when player isn't looking
+            agent.isStopped = false;
+            agent.SetDestination(player.position);
+            
+            // Adjust speed based on distance
+            agent.speed = (distanceToPlayer <= attackRange * 1.5f) ? attackingSpeed : stalkingSpeed;
+            
+            // Attack if in range
+            if (distanceToPlayer <= attackRange && canAttack)
+            {
+                Attack();
             }
             
-            yield return new WaitForSeconds(0.1f);
-        }
-    }
-    
-    private void UpdateStalking()
-    {
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-        
-        if (distanceToPlayer < detectionRange && CanSeePlayer())
-        {
-            if (Random.value < ambushProbability && canAmbush)
+            // Reset sanity effect when not looking
+            SanitySystem sanitySystem = player.GetComponent<SanitySystem>();
+            if (sanitySystem != null)
             {
-                currentState = State.Ambushing;
-                StartCoroutine(AmbushCooldown());
-            }
-            else
-            {
-                currentState = State.Chasing;
+                sanitySystem.OnDinosaurSighted(false);
             }
         }
-        else
-        {
-            Vector3 stalkPosition = GetStalkPosition();
-            agent.speed = stalkingSpeed;
-            agent.SetDestination(stalkPosition);
-        }
     }
     
-    private void UpdateChasing()
+    private bool IsPlayerLookingAtRaptor()
     {
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+        if (player == null || playerCamera == null) return false;
         
-        if (distanceToPlayer > detectionRange || !CanSeePlayer())
-        {
-            lastKnownPosition = player.position;
-            currentState = State.Searching;
-        }
-        else
-        {
-            agent.speed = chaseSpeed;
-            agent.SetDestination(player.position);
-            NotifyPlayerOfSight(true);
-        }
-    }
-    
-    private void UpdateAmbushing()
-    {
-        agent.speed = 0;
+        Vector3 directionToRaptor = transform.position - playerCamera.transform.position;
+        float angle = Vector3.Angle(playerCamera.transform.forward, directionToRaptor);
         
-        // Wait for player to get closer or lose sight
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-        if (distanceToPlayer < detectionRange * 0.5f)
+        // First check if raptor is in player's view cone
+        if (angle <= viewAngle * 0.5f)
         {
-            currentState = State.Chasing;
-        }
-        else if (!CanSeePlayer())
-        {
-            currentState = State.Stalking;
-        }
-    }
-    
-    private void UpdateSearching()
-    {
-        float distanceToLastKnown = Vector3.Distance(transform.position, lastKnownPosition);
-        
-        if (distanceToLastKnown < 2f)
-        {
-            currentState = State.Stalking;
-        }
-        else
-        {
-            agent.speed = stealthSpeed;
-            agent.SetDestination(lastKnownPosition);
-        }
-    }
-    
-    private Vector3 GetStalkPosition()
-    {
-        Vector3 randomDirection = Random.insideUnitSphere * maxStalkDistance;
-        randomDirection += player.position;
-        NavMeshHit hit;
-        NavMesh.SamplePosition(randomDirection, out hit, maxStalkDistance, NavMesh.AllAreas);
-        
-        return hit.position;
-    }
-    
-    private bool CanSeePlayer()
-    {
-        RaycastHit hit;
-        Vector3 directionToPlayer = (player.position - transform.position).normalized;
-        
-        if (Physics.Raycast(transform.position, directionToPlayer, out hit, detectionRange))
-        {
-            return hit.transform == player;
+            // Then check if there are any obstacles blocking the view
+            RaycastHit hit;
+            if (Physics.Raycast(playerCamera.transform.position, directionToRaptor.normalized, 
+                out hit, directionToRaptor.magnitude, obstacleLayer))
+            {
+                // View is blocked by obstacle
+                return false;
+            }
+            return true;
         }
         
         return false;
     }
     
-    private IEnumerator SoundCheck()
+    private void Attack()
     {
-        while (true)
-        {
-            float playerNoise = playerMovement.GetCurrentNoiseLevel();
-            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-            
-            if (distanceToPlayer < hearingRange * playerNoise)
-            {
-                lastKnownPosition = player.position;
-                if (currentState != State.Chasing && currentState != State.Ambushing)
-                {
-                    currentState = State.Searching;
-                }
-                NotifyPlayerOfSound(true);
-            }
-            else
-            {
-                NotifyPlayerOfSound(false);
-            }
-            
-            yield return new WaitForSeconds(0.5f);
-        }
-    }
-    
-    private IEnumerator AmbushCooldown()
-    {
-        canAmbush = false;
-        yield return new WaitForSeconds(ambushCooldown);
-        canAmbush = true;
-    }
-    
-    private void NotifyPlayerOfSight(bool canSeePlayer)
-    {
-        if (playerSanity != null)
-        {
-            playerSanity.OnDinosaurSighted(canSeePlayer);
-        }
-    }
-    
-    private void NotifyPlayerOfSound(bool canHearDinosaur)
-    {
-        if (playerSanity != null)
-        {
-            playerSanity.OnDinosaurSound(canHearDinosaur);
-        }
-    }
-    
-    private void OnHorrorStateChanged(bool horrorActive)
-    {
-        isInHorrorMode = horrorActive;
+        if (Time.time - lastAttackTime < attackCooldown) return;
         
-        if (normalModel != null && horrorModel != null)
+        // Get player's controller component and apply damage
+        PlayerController playerController = player.GetComponent<PlayerController>();
+        if (playerController != null)
         {
-            normalModel.SetActive(!horrorActive);
-            horrorModel.SetActive(horrorActive);
+            playerController.TakeDamage(attackDamage);
         }
         
-        // Adjust behavior for horror mode
-        if (horrorActive)
+        lastAttackTime = Time.time;
+        canAttack = false;
+        Invoke(nameof(ResetAttack), attackCooldown);
+    }
+    
+    private void ResetAttack()
+    {
+        canAttack = true;
+    }
+    
+    private void OnDrawGizmosSelected()
+    {
+        // Draw attack range
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        
+        // Draw freeze distance
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, freezeDistance);
+        
+        // Draw view cone
+        if (player != null)
         {
-            stalkingSpeed *= 1.5f;
-            chaseSpeed *= 1.2f;
-            detectionRange *= 1.3f;
-            hearingRange *= 1.3f;
-            ambushProbability *= 1.5f;
-        }
-        else
-        {
-            // Reset to original values
-            stalkingSpeed = 3f;
-            chaseSpeed = 8f;
-            detectionRange = 15f;
-            hearingRange = 20f;
-            ambushProbability = 0.3f;
+            Gizmos.color = Color.yellow;
+            Vector3 forward = transform.forward;
+            Vector3 right = Quaternion.Euler(0, viewAngle * 0.5f, 0) * forward;
+            Vector3 left = Quaternion.Euler(0, -viewAngle * 0.5f, 0) * forward;
+            
+            Gizmos.DrawRay(transform.position, right * freezeDistance);
+            Gizmos.DrawRay(transform.position, left * freezeDistance);
         }
     }
 } 

@@ -6,274 +6,170 @@ using System.Collections;
 public class SpinosaurusAI : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public float patrolSpeed = 5f;
-    public float chaseSpeed = 12f;
-    public float detectionRange = 25f;
-    public float hearingRange = 30f;
-    public float waterDetectionRange = 40f;
+    public float walkSpeed = 5f;
+    public float runSpeed = 15f;
+    public float roamRadius = 50f;
+    public float minRoamWaitTime = 3f;
+    public float maxRoamWaitTime = 8f;
     
-    [Header("Behavior Settings")]
-    public float waterPreference = 0.7f;
-    public float territoryRadius = 50f;
-    public float attackCooldown = 5f;
-    public float roarCooldown = 15f;
+    [Header("Detection Settings")]
+    public float detectionRange = 30f;
+    public float attackRange = 4f;
+    public float hearingRange = 15f;
+    public LayerMask detectionMask;
     
-    [Header("Horror Transform")]
-    public GameObject normalModel;
-    public GameObject horrorModel;
-    public AudioSource roarSound;
+    [Header("Attack Settings")]
+    public float attackDamage = 40f;
+    public float attackCooldown = 2f;
     
     private NavMeshAgent agent;
     private Transform player;
-    private PlayerMovement playerMovement;
-    private SanitySystem playerSanity;
-    private Vector3 territoryCenter;
-    private Vector3 currentPatrolPoint;
-    private bool isInHorrorMode = false;
+    private Vector3 roamCenter;
+    private bool isHunting = false;
     private bool canAttack = true;
-    private bool canRoar = true;
-    private State currentState = State.Patrolling;
-    
-    private enum State
-    {
-        Patrolling,
-        Chasing,
-        Attacking,
-        Returning
-    }
+    private float lastAttackTime;
     
     private void Start()
     {
         agent = GetComponent<NavMeshAgent>();
-        player = GameObject.FindGameObjectWithTag("Player").transform;
-        playerMovement = player.GetComponent<PlayerMovement>();
-        playerSanity = player.GetComponent<SanitySystem>();
-        territoryCenter = transform.position;
+        player = GameObject.FindGameObjectWithTag("Player")?.transform;
+        roamCenter = transform.position;
         
-        // Subscribe to horror events
-        DinosaurHorrorEvent.OnHorrorStateChanged += OnHorrorStateChanged;
+        if (player == null)
+        {
+            Debug.LogError("SpinosaurusAI: Player not found!");
+            enabled = false;
+            return;
+        }
         
-        StartCoroutine(StateMachine());
-        StartCoroutine(RoarRoutine());
+        // Set initial agent settings
+        agent.speed = walkSpeed;
+        agent.stoppingDistance = attackRange * 0.8f;
+        
+        // Start roaming behavior
+        StartCoroutine(RoamingBehavior());
     }
     
-    private void OnDestroy()
+    private void Update()
     {
-        DinosaurHorrorEvent.OnHorrorStateChanged -= OnHorrorStateChanged;
+        if (player == null) return;
+        
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+        
+        // Check if player is in detection range
+        if (distanceToPlayer <= detectionRange)
+        {
+            // Check if there's a clear line of sight
+            if (HasLineOfSightToPlayer())
+            {
+                isHunting = true;
+                Hunt();
+            }
+        }
+        
+        // Check if player is making noise
+        if (!isHunting && distanceToPlayer <= hearingRange)
+        {
+            PlayerMovement playerMovement = player.GetComponent<PlayerMovement>();
+            if (playerMovement != null && playerMovement.GetCurrentNoiseLevel() > 0.5f)
+            {
+                isHunting = true;
+                Hunt();
+            }
+        }
+        
+        // Attack if in range
+        if (distanceToPlayer <= attackRange && canAttack)
+        {
+            Attack();
+        }
     }
     
-    private IEnumerator StateMachine()
+    private IEnumerator RoamingBehavior()
     {
         while (true)
         {
-            switch (currentState)
+            if (!isHunting)
             {
-                case State.Patrolling:
-                    UpdatePatrolling();
-                    break;
-                case State.Chasing:
-                    UpdateChasing();
-                    break;
-                case State.Attacking:
-                    UpdateAttacking();
-                    break;
-                case State.Returning:
-                    UpdateReturning();
-                    break;
+                // Find a random point within roaming radius
+                Vector3 randomDirection = Random.insideUnitSphere * roamRadius;
+                randomDirection += roamCenter;
+                NavMeshHit hit;
+                
+                // Find nearest valid position on NavMesh
+                if (NavMesh.SamplePosition(randomDirection, out hit, roamRadius, NavMesh.AllAreas))
+                {
+                    agent.speed = walkSpeed;
+                    agent.SetDestination(hit.position);
+                }
+                
+                // Wait at destination
+                float waitTime = Random.Range(minRoamWaitTime, maxRoamWaitTime);
+                yield return new WaitForSeconds(waitTime);
             }
             
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(1f);
         }
     }
     
-    private void UpdatePatrolling()
+    private void Hunt()
     {
-        if (Vector3.Distance(transform.position, currentPatrolPoint) < 2f)
-        {
-            currentPatrolPoint = GetPatrolPoint();
-        }
-        
-        agent.speed = patrolSpeed;
-        agent.SetDestination(currentPatrolPoint);
-        
-        // Check for player
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-        if (distanceToPlayer < detectionRange && CanSeePlayer())
-        {
-            currentState = State.Chasing;
-            if (canRoar)
-            {
-                StartCoroutine(Roar());
-            }
-        }
+        agent.speed = runSpeed;
+        agent.SetDestination(player.position);
     }
     
-    private void UpdateChasing()
+    private bool HasLineOfSightToPlayer()
     {
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+        if (player == null) return false;
         
-        if (distanceToPlayer > detectionRange * 1.5f || !CanSeePlayer())
-        {
-            currentState = State.Returning;
-        }
-        else
-        {
-            agent.speed = chaseSpeed;
-            agent.SetDestination(player.position);
-            NotifyPlayerOfSight(true);
-            
-            if (distanceToPlayer < agent.stoppingDistance && canAttack)
-            {
-                currentState = State.Attacking;
-                StartCoroutine(AttackCooldown());
-            }
-        }
-    }
-    
-    private void UpdateAttacking()
-    {
-        // Implement attack animation and damage here
-        currentState = State.Chasing;
-    }
-    
-    private void UpdateReturning()
-    {
-        float distanceToTerritory = Vector3.Distance(transform.position, territoryCenter);
-        
-        if (distanceToTerritory < 5f)
-        {
-            currentState = State.Patrolling;
-            currentPatrolPoint = GetPatrolPoint();
-        }
-        else
-        {
-            agent.speed = patrolSpeed;
-            agent.SetDestination(territoryCenter);
-        }
-        
-        NotifyPlayerOfSight(false);
-    }
-    
-    private Vector3 GetPatrolPoint()
-    {
-        Vector3 randomPoint = Random.insideUnitSphere * territoryRadius;
-        randomPoint.y = 0;
-        randomPoint += territoryCenter;
-        
-        NavMeshHit hit;
-        NavMesh.SamplePosition(randomPoint, out hit, territoryRadius, NavMesh.AllAreas);
-        
-        // Prefer points near water (you'd need to implement water detection)
-        if (IsNearWater(hit.position) && Random.value < waterPreference)
-        {
-            return hit.position;
-        }
-        
-        return hit.position;
-    }
-    
-    private bool IsNearWater(Vector3 position)
-    {
-        // Implement water detection here (e.g., using layers or tags)
-        return false;
-    }
-    
-    private bool CanSeePlayer()
-    {
         RaycastHit hit;
         Vector3 directionToPlayer = (player.position - transform.position).normalized;
         
-        if (Physics.Raycast(transform.position, directionToPlayer, out hit, detectionRange))
+        if (Physics.Raycast(transform.position, directionToPlayer, out hit, detectionRange, detectionMask))
         {
-            return hit.transform == player;
+            return hit.transform.CompareTag("Player");
         }
         
         return false;
     }
     
-    private IEnumerator AttackCooldown()
+    private void Attack()
     {
+        if (Time.time - lastAttackTime < attackCooldown) return;
+        
+        // Get player's controller component and apply damage
+        PlayerController playerController = player.GetComponent<PlayerController>();
+        if (playerController != null)
+        {
+            playerController.TakeDamage(attackDamage);
+        }
+        
+        lastAttackTime = Time.time;
         canAttack = false;
-        yield return new WaitForSeconds(attackCooldown);
+        Invoke(nameof(ResetAttack), attackCooldown);
+    }
+    
+    private void ResetAttack()
+    {
         canAttack = true;
     }
     
-    private IEnumerator Roar()
+    private void OnDrawGizmosSelected()
     {
-        canRoar = false;
+        // Draw roaming radius
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(roamCenter, roamRadius);
         
-        if (roarSound != null)
-        {
-            roarSound.Play();
-        }
+        // Draw detection range
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, detectionRange);
         
-        // Affect player's sanity more during roar
-        if (playerSanity != null)
-        {
-            playerSanity.OnDinosaurSound(true);
-        }
+        // Draw attack range
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
         
-        yield return new WaitForSeconds(2f); // Roar duration
-        
-        if (playerSanity != null)
-        {
-            playerSanity.OnDinosaurSound(false);
-        }
-        
-        yield return new WaitForSeconds(roarCooldown - 2f);
-        canRoar = true;
-    }
-    
-    private IEnumerator RoarRoutine()
-    {
-        while (true)
-        {
-            yield return new WaitForSeconds(Random.Range(roarCooldown, roarCooldown * 2));
-            
-            if (canRoar && currentState != State.Returning)
-            {
-                StartCoroutine(Roar());
-            }
-        }
-    }
-    
-    private void NotifyPlayerOfSight(bool canSeePlayer)
-    {
-        if (playerSanity != null)
-        {
-            playerSanity.OnDinosaurSighted(canSeePlayer);
-        }
-    }
-    
-    private void OnHorrorStateChanged(bool horrorActive)
-    {
-        isInHorrorMode = horrorActive;
-        
-        if (normalModel != null && horrorModel != null)
-        {
-            normalModel.SetActive(!horrorActive);
-            horrorModel.SetActive(horrorActive);
-        }
-        
-        // Adjust behavior for horror mode
-        if (horrorActive)
-        {
-            patrolSpeed *= 1.3f;
-            chaseSpeed *= 1.4f;
-            detectionRange *= 1.5f;
-            hearingRange *= 1.5f;
-            attackCooldown *= 0.7f;
-            roarCooldown *= 0.5f;
-        }
-        else
-        {
-            // Reset to original values
-            patrolSpeed = 5f;
-            chaseSpeed = 12f;
-            detectionRange = 25f;
-            hearingRange = 30f;
-            attackCooldown = 5f;
-            roarCooldown = 15f;
-        }
+        // Draw hearing range
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, hearingRange);
     }
 } 

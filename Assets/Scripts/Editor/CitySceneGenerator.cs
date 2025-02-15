@@ -507,12 +507,26 @@ public class CitySceneGenerator : EditorWindow
         rect.anchoredPosition = position;
         rect.sizeDelta = new Vector2(200, 20);
         
+        // Create background for better visibility
+        GameObject background = new GameObject("Background Panel");
+        background.transform.SetParent(container.transform);
+        background.transform.SetAsFirstSibling();
+        Image bgImage = background.AddComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 0.7f);
+        RectTransform bgRect = background.GetComponent<RectTransform>();
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.sizeDelta = new Vector2(20, 10);
+        bgRect.offsetMin = new Vector2(-10, -5);
+        bgRect.offsetMax = new Vector2(10, 5);
+        
         // Create label
         GameObject labelObj = new GameObject("Label");
         labelObj.transform.SetParent(container.transform);
         TextMeshProUGUI labelText = labelObj.AddComponent<TextMeshProUGUI>();
         labelText.text = label + ":";
         labelText.fontSize = 14;
+        labelText.color = Color.white;
         RectTransform labelRect = labelObj.GetComponent<RectTransform>();
         labelRect.anchoredPosition = new Vector2(-100, 0);
         labelRect.sizeDelta = new Vector2(80, 20);
@@ -526,14 +540,14 @@ public class CitySceneGenerator : EditorWindow
         sliderRect.sizeDelta = new Vector2(100, 20);
         
         // Add slider background
-        GameObject background = new GameObject("Background");
-        background.transform.SetParent(sliderObj.transform);
-        Image bgImage = background.AddComponent<Image>();
-        bgImage.color = new Color(0.2f, 0.2f, 0.2f);
-        RectTransform bgRect = background.GetComponent<RectTransform>();
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.sizeDelta = Vector2.zero;
+        GameObject sliderBg = new GameObject("Background");
+        sliderBg.transform.SetParent(sliderObj.transform);
+        Image bgImage2 = sliderBg.AddComponent<Image>();
+        bgImage2.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+        RectTransform bgRect2 = sliderBg.GetComponent<RectTransform>();
+        bgRect2.anchorMin = Vector2.zero;
+        bgRect2.anchorMax = Vector2.one;
+        bgRect2.sizeDelta = Vector2.zero;
         
         // Add slider fill
         GameObject fill = new GameObject("Fill");
@@ -564,8 +578,8 @@ public class CitySceneGenerator : EditorWindow
         {
             utahraptor = GameObject.CreatePrimitive(PrimitiveType.Cube);
             utahraptor.name = "Utahraptor";
-            utahraptor.AddComponent<UtahraptorAI>();
             utahraptor.AddComponent<NavMeshAgent>();
+            utahraptor.AddComponent<UtahraptorAI>();
             utahraptor.transform.localScale = new Vector3(1, 2, 3);
         }
         
@@ -583,8 +597,8 @@ public class CitySceneGenerator : EditorWindow
         {
             spinosaurus = GameObject.CreatePrimitive(PrimitiveType.Cube);
             spinosaurus.name = "Spinosaurus";
-            spinosaurus.AddComponent<SpinosaurusAI>();
             spinosaurus.AddComponent<NavMeshAgent>();
+            spinosaurus.AddComponent<SpinosaurusAI>();
             spinosaurus.transform.localScale = new Vector3(2, 4, 6);
         }
         
@@ -656,24 +670,41 @@ public class CitySceneGenerator : EditorWindow
         GameObject objectiveObj = new GameObject("Objective Text");
         objectiveObj.transform.SetParent(missionPanel.transform);
         TextMeshProUGUI objectiveText = objectiveObj.AddComponent<TextMeshProUGUI>();
+        objectiveText.text = "Objective: Escape the City";
         objectiveText.fontSize = 16;
         objectiveText.color = Color.white;
+        objectiveText.alignment = TextAlignmentOptions.TopLeft;
         RectTransform objectiveRect = objectiveObj.GetComponent<RectTransform>();
         objectiveRect.anchorMin = Vector2.zero;
         objectiveRect.anchorMax = Vector2.one;
         objectiveRect.sizeDelta = Vector2.zero;
+        objectiveRect.offsetMin = new Vector2(10, 40);
+        objectiveRect.offsetMax = new Vector2(-10, -10);
         
         // Create distance text
         GameObject distanceObj = new GameObject("Distance Text");
         distanceObj.transform.SetParent(missionPanel.transform);
         TextMeshProUGUI distanceText = distanceObj.AddComponent<TextMeshProUGUI>();
+        distanceText.text = "Distance: 0m";
         distanceText.fontSize = 14;
         distanceText.color = Color.yellow;
+        distanceText.alignment = TextAlignmentOptions.TopLeft;
         RectTransform distanceRect = distanceObj.GetComponent<RectTransform>();
         distanceRect.anchorMin = new Vector2(0, 0);
         distanceRect.anchorMax = new Vector2(1, 0);
-        distanceRect.anchoredPosition = new Vector2(0, 20);
-        distanceRect.sizeDelta = new Vector2(0, 20);
+        distanceRect.anchoredPosition = new Vector2(10, 10);
+        distanceRect.sizeDelta = new Vector2(-20, 20);
+        
+        // Add background image to make text more visible
+        GameObject background = new GameObject("Panel Background");
+        background.transform.SetParent(missionPanel.transform);
+        background.transform.SetAsFirstSibling(); // Put it behind other elements
+        Image bgImage = background.AddComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 0.7f); // Semi-transparent black
+        RectTransform bgRect = background.GetComponent<RectTransform>();
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.sizeDelta = Vector2.zero;
         
         // Setup references
         missionSystem.objectiveText = objectiveText;
