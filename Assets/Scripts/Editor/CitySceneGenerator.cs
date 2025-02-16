@@ -236,6 +236,10 @@ public class CitySceneGenerator : EditorWindow
         ground.transform.localScale = new Vector3(100, 1, 100); // Increased from 20 to 100
         ground.name = "Ground";
         
+        // Set the ground tag to Ground (will use Rock sounds by default)
+        ground.tag = "Ground";
+        Debug.Log($"Ground object created with tag: {ground.tag}");
+        
         // Create water area
         CreateWaterArea();
         
@@ -254,6 +258,7 @@ public class CitySceneGenerator : EditorWindow
         // Create a large water area outside the city
         GameObject waterArea = GameObject.CreatePrimitive(PrimitiveType.Cube);
         waterArea.name = "WaterArea";
+        waterArea.tag = "Water";  // Water area is water
         
         // Position the water area outside the city (assuming city is centered at 0,0)
         // Raise it higher for better testing
@@ -422,6 +427,7 @@ public class CitySceneGenerator : EditorWindow
         float height = Random.Range(10f, 30f);
         GameObject building = GameObject.CreatePrimitive(PrimitiveType.Cube);
         building.name = "Building";
+        building.tag = "Metal";  // Buildings are metal
         building.transform.position = position + new Vector3(0, height/2, 0);
         building.transform.localScale = new Vector3(size * 0.8f, height, size * 0.8f);
         
@@ -445,9 +451,9 @@ public class CitySceneGenerator : EditorWindow
     private void CreateStreets()
     {
         // Add street details like sidewalks, barriers, etc.
-        // This is a simplified version
         GameObject streets = new GameObject("Streets");
         streets.transform.position = Vector3.zero;
+        streets.tag = "Tile";  // Streets are tile
         
         Shader standardShader = Shader.Find("Universal Render Pipeline/Lit");
         if (standardShader == null)
@@ -551,324 +557,53 @@ public class CitySceneGenerator : EditorWindow
     
     private GameObject CreatePlayer()
     {
-        GameObject player;
-        if (playerPrefab != null)
+        GameObject player = new GameObject("Player");
+        player.tag = "Player";
+        
+        // Add required components
+        player.AddComponent<CharacterController>();
+        player.AddComponent<PlayerMovement>();
+        player.AddComponent<SanitySystem>();
+        player.AddComponent<RadioSystem>();
+        FlashlightSystem flashlight = player.AddComponent<FlashlightSystem>();
+        
+        // Set up default flashlight sounds
+        AudioClip flashlightSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Flashlight.mp3");
+        if (flashlightSound != null)
         {
-            player = PrefabUtility.InstantiatePrefab(playerPrefab) as GameObject;
+            flashlight.toggleOnSound = flashlightSound;
+            flashlight.toggleOffSound = flashlightSound;
+            Debug.Log("Flashlight toggle sound loaded successfully");
         }
         else
         {
-            player = new GameObject("Player");
-            player.tag = "Player";
-            
-            // Add required components
-            CharacterController controller = player.AddComponent<CharacterController>();
-            controller.height = 1.8f;
-            controller.radius = 0.3f;
-            controller.center = new Vector3(0, 0.9f, 0);
-            
-            // Create camera holder (this will handle bobbing)
-            GameObject cameraHolder = new GameObject("CameraHolder");
-            cameraHolder.transform.SetParent(player.transform);
-            cameraHolder.transform.localPosition = new Vector3(0, 1.6f, 0);
-            
-            // Add camera to holder
-            GameObject cameraObj = new GameObject("Main Camera");
-            Camera camera = cameraObj.AddComponent<Camera>();
-            camera.nearClipPlane = 0.01f;
-            camera.fieldOfView = 90f;
-            cameraObj.AddComponent<AudioListener>();
-            cameraObj.transform.SetParent(cameraHolder.transform);
-            cameraObj.transform.localPosition = Vector3.zero;
-            
-            player.AddComponent<PlayerMovement>();
-            player.AddComponent<SanitySystem>();
-            player.AddComponent<RadioSystem>();
-            player.AddComponent<FlashlightSystem>();
-            
-            // Create player model container
-            GameObject playerModelContainer = new GameObject("PlayerModel");
-            playerModelContainer.transform.SetParent(player.transform);
-            playerModelContainer.transform.localPosition = Vector3.zero;
-            
-            // Add player model (capsule for body)
-            GameObject playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            playerModel.name = "Body";
-            playerModel.transform.SetParent(playerModelContainer.transform);
-            playerModel.transform.localPosition = new Vector3(0, 0.9f, 0);
-            playerModel.transform.localScale = new Vector3(0.6f, 0.9f, 0.6f);
-            
-            // Add material to player model
-            Shader standardShader = Shader.Find("Universal Render Pipeline/Lit");
-            if (standardShader == null) standardShader = Shader.Find("Standard");
-            if (standardShader != null)
-            {
-                Material playerMat = new Material(standardShader);
-                playerMat.color = new Color(0.2f, 0.6f, 1f);
-                playerModel.GetComponent<Renderer>().material = playerMat;
-            }
-            
-            // Create head object at the top of the capsule
-            GameObject head = new GameObject("Head");
-            head.transform.SetParent(playerModelContainer.transform);
-            head.transform.localPosition = new Vector3(0, 1.6f, 0);
-            
-            // Add VHS post-processing effect
-            if (camera != null)
-            {
-                // Create VHS effect material
-                Shader vhsShader = Shader.Find("Hidden/VHS");
-                if (vhsShader == null)
-                {
-                    // Create the VHS shader if it doesn't exist
-                    CreateVHSShader();
-                    vhsShader = Shader.Find("Hidden/VHS");
-                }
-                
-                if (vhsShader != null)
-                {
-                    Material vhsMaterial = new Material(vhsShader);
-                    vhsMaterial.SetFloat("_NoiseIntensity", 0.0015f);
-                    vhsMaterial.SetFloat("_ScanLineJitter", 0.001f);
-                    
-                    // Add post-processing effect component
-                    var postEffect = cameraObj.AddComponent<PostProcessingEffect>();
-                    postEffect.material = vhsMaterial;
-                }
-            }
-            
-            // Create UI canvas and attach it to the camera
-            CreatePlayerUI(camera);
+            Debug.LogWarning("Could not load flashlight sound at Assets/Audio/Flashlight.mp3");
         }
         
-        // Find valid spawn position for player
-        Vector3 validPosition = FindValidSpawnPosition(new Vector3(0, 0, 0), 1.5f);
-        player.transform.position = validPosition;
+        // Add audio components
+        player.AddComponent<AudioListener>();
+        player.AddComponent<FootstepSystem>();
+        player.AddComponent<FootstepLoader>(); // This will handle loading the sounds
         
+        // Create player model
+        GameObject playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        playerModel.transform.SetParent(player.transform);
+        playerModel.transform.localPosition = Vector3.zero;
+        playerModel.transform.localScale = new Vector3(1f, 1f, 1f);
+        
+        // Add camera
+        GameObject cameraHolder = new GameObject("CameraHolder");
+        cameraHolder.transform.SetParent(player.transform);
+        cameraHolder.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+        
+        GameObject cameraObj = new GameObject("PlayerCamera");
+        cameraObj.transform.SetParent(cameraHolder.transform);
+        cameraObj.transform.localPosition = Vector3.zero;
+        Camera camera = cameraObj.AddComponent<Camera>();
+        camera.nearClipPlane = 0.01f;
+        camera.farClipPlane = 1000f;
+
         return player;
-    }
-    
-    private void CreatePlayerUI(Camera camera)
-    {
-        // Create Canvas
-        GameObject canvasObj = new GameObject("UI Canvas");
-        Canvas canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.worldCamera = camera;
-        canvasObj.AddComponent<CanvasScaler>();
-        canvasObj.AddComponent<GraphicRaycaster>();
-        
-        // Create status panel
-        GameObject statusPanel = new GameObject("Status Panel");
-        statusPanel.transform.SetParent(canvasObj.transform);
-        RectTransform statusRect = statusPanel.AddComponent<RectTransform>();
-        statusRect.anchorMin = new Vector2(0, 1);
-        statusRect.anchorMax = new Vector2(0, 1);
-        statusRect.pivot = new Vector2(0, 1);
-        statusRect.anchoredPosition = new Vector2(20, -20);
-        
-        // Add UI components
-        CreateStatusBar(statusPanel, "Sanity", new Vector2(0, 0));
-        CreateStatusBar(statusPanel, "Stamina", new Vector2(0, -30));
-        CreateStatusBar(statusPanel, "Radio Battery", new Vector2(0, -60));
-        
-        // Add PlayerStatusUI component
-        PlayerStatusUI statusUI = statusPanel.AddComponent<PlayerStatusUI>();
-        
-        // Setup references
-        statusUI.sanitySlider = statusPanel.transform.Find("Sanity/Slider").GetComponent<Slider>();
-        statusUI.staminaSlider = statusPanel.transform.Find("Stamina/Slider").GetComponent<Slider>();
-        statusUI.batterySlider = statusPanel.transform.Find("Radio Battery/Slider").GetComponent<Slider>();
-    }
-    
-    private void CreateStatusBar(GameObject parent, string label, Vector2 position)
-    {
-        // Create container
-        GameObject container = new GameObject(label);
-        container.transform.SetParent(parent.transform);
-        RectTransform containerRect = container.AddComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0, 1);
-        containerRect.anchorMax = new Vector2(0, 1);
-        containerRect.pivot = new Vector2(0, 1);
-        containerRect.anchoredPosition = position;
-        containerRect.sizeDelta = new Vector2(200, 20);
-        
-        // Create label
-        GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(container.transform);
-        TextMeshProUGUI labelText = labelObj.AddComponent<TextMeshProUGUI>();
-        labelText.text = label + ":";
-        labelText.fontSize = 14;
-        labelText.color = Color.white;
-        RectTransform labelRect = labelObj.GetComponent<RectTransform>();
-        labelRect.anchorMin = new Vector2(0, 0);
-        labelRect.anchorMax = new Vector2(0, 1);
-        labelRect.pivot = new Vector2(0, 0.5f);
-        labelRect.anchoredPosition = Vector2.zero;
-        labelRect.sizeDelta = new Vector2(80, 0);
-        
-        // Create slider background
-        GameObject background = new GameObject("Background");
-        background.transform.SetParent(container.transform);
-        Image bgImage = background.AddComponent<Image>();
-        bgImage.color = new Color(0, 0, 0, 0.5f);
-        RectTransform bgRect = background.GetComponent<RectTransform>();
-        bgRect.anchorMin = new Vector2(0, 0);
-        bgRect.anchorMax = new Vector2(1, 1);
-        bgRect.pivot = new Vector2(0, 0.5f);
-        bgRect.anchoredPosition = new Vector2(85, 0);
-        bgRect.sizeDelta = new Vector2(-90, -4);
-        
-        // Create slider
-        GameObject sliderObj = new GameObject("Slider");
-        sliderObj.transform.SetParent(container.transform);
-        Slider slider = sliderObj.AddComponent<Slider>();
-        RectTransform sliderRect = sliderObj.GetComponent<RectTransform>();
-        sliderRect.anchorMin = new Vector2(0, 0);
-        sliderRect.anchorMax = new Vector2(1, 1);
-        sliderRect.pivot = new Vector2(0, 0.5f);
-        sliderRect.anchoredPosition = new Vector2(85, 0);
-        sliderRect.sizeDelta = new Vector2(-90, -4);
-        
-        // Create slider fill area
-        GameObject fillArea = new GameObject("Fill Area");
-        fillArea.transform.SetParent(sliderObj.transform);
-        RectTransform fillAreaRect = fillArea.AddComponent<RectTransform>();
-        fillAreaRect.anchorMin = new Vector2(0, 0);
-        fillAreaRect.anchorMax = new Vector2(1, 1);
-        fillAreaRect.pivot = new Vector2(0.5f, 0.5f);
-        fillAreaRect.sizeDelta = Vector2.zero;
-        
-        // Create fill
-        GameObject fill = new GameObject("Fill");
-        fill.transform.SetParent(fillArea.transform);
-        Image fillImage = fill.AddComponent<Image>();
-        fillImage.color = GetColorForLabel(label);
-        RectTransform fillRect = fill.GetComponent<RectTransform>();
-        fillRect.anchorMin = Vector2.zero;
-        fillRect.anchorMax = Vector2.one;
-        fillRect.sizeDelta = Vector2.zero;
-        
-        // Setup slider
-        slider.fillRect = fillRect;
-        slider.targetGraphic = fillImage;
-        slider.direction = Slider.Direction.LeftToRight;
-        slider.minValue = 0;
-        slider.maxValue = 100;
-        slider.value = 100;
-    }
-    
-    private Color GetColorForLabel(string label)
-    {
-        switch (label)
-        {
-            case "Sanity":
-                return new Color(0.2f, 0.8f, 0.2f); // Green
-            case "Stamina":
-                return new Color(0.8f, 0.8f, 0.2f); // Yellow
-            case "Radio Battery":
-                return new Color(0.2f, 0.6f, 1f); // Blue
-            default:
-                return Color.white;
-        }
-    }
-    
-    private void CreateVHSShader()
-    {
-        string shaderCode = 
-@"Shader ""Hidden/VHS"" {
-    Properties {
-        _MainTex (""Texture"", 2D) = ""white"" {}
-        _NoiseIntensity (""Noise Intensity"", Range(0, 1)) = 0.025
-        _ScanLineJitter (""Scan Line Jitter"", Range(0, 1)) = 0.008
-    }
-    SubShader {
-        Tags { ""RenderType""=""Opaque"" }
-        LOD 100
-
-        Pass {
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            
-            #include ""UnityCG.cginc""
-
-            struct appdata {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct v2f {
-                float2 uv : TEXCOORD0;
-                float4 vertex : SV_POSITION;
-            };
-
-            sampler2D _MainTex;
-            float _NoiseIntensity;
-            float _ScanLineJitter;
-            
-            float random(float2 st) {
-                return frac(sin(dot(st.xy, float2(12.9898,78.233))) * 43758.5453123);
-            }
-
-            v2f vert(appdata v) {
-                v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = v.uv;
-                return o;
-            }
-            
-            fixed4 frag(v2f i) : SV_Target {
-                float2 uv = i.uv;
-                
-                // Scan line jitter with reduced speed and intensity
-                float jitter = random(float2(_Time.y * 0.25, uv.y)) * 2 - 1;
-                uv.x += jitter * _ScanLineJitter;
-                
-                // Noise with reduced speed
-                float noise = random(uv * _Time.y * 0.25) * _NoiseIntensity;
-                
-                // Sample texture
-                fixed4 col = tex2D(_MainTex, uv);
-                
-                // Apply noise and very subtle scanlines
-                col.rgb += noise;
-                col.rgb *= 0.985 + 0.015 * sin(uv.y * 300);
-                
-                return col;
-            }
-            ENDCG
-        }
-    }
-}";
-        
-        // Create shader file
-        string shaderPath = "Assets/Shaders";
-        if (!System.IO.Directory.Exists(shaderPath))
-        {
-            System.IO.Directory.CreateDirectory(shaderPath);
-        }
-        
-        System.IO.File.WriteAllText(shaderPath + "/VHSEffect.shader", shaderCode);
-        AssetDatabase.Refresh();
-    }
-    
-    // Add this class for post-processing
-    public class PostProcessingEffect : MonoBehaviour
-    {
-        public Material material;
-        
-        void OnRenderImage(RenderTexture source, RenderTexture destination)
-        {
-            if (material != null)
-            {
-                Graphics.Blit(source, destination, material);
-            }
-            else
-            {
-                Graphics.Blit(source, destination);
-            }
-        }
     }
     
     private void CreateDinosaurs()

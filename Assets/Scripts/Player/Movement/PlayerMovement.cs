@@ -1,6 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
+[RequireComponent(typeof(FootstepSystem))]
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement Settings")]
@@ -43,8 +44,8 @@ public class PlayerMovement : MonoBehaviour
     private Transform cameraHolder;
     private Vector3 velocity;
     private bool isGrounded;
-    private bool isCrouching;
-    private bool isSprinting;
+    public bool isCrouching;
+    public bool isSprinting;
     private bool isInWater;
     private bool isUnderwater;
     private float currentStamina;
@@ -56,17 +57,20 @@ public class PlayerMovement : MonoBehaviour
     private float lastStaminaUseTime;
     private float defaultCameraHolderY;
     private float targetCameraY;
+    private FootstepSystem footstepSystem;
     
     private void Start()
     {
         controller = GetComponent<CharacterController>();
+        footstepSystem = GetComponent<FootstepSystem>();
         playerCamera = GetComponentInChildren<Camera>();
-        cameraHolder = playerCamera.transform.parent;
+        if (playerCamera != null)
+        {
+            cameraHolder = playerCamera.transform;
+            defaultCameraY = cameraHolder.localPosition.y;
+            defaultCameraHolderY = cameraHolder.localPosition.y;
+        }
         currentStamina = maxStamina;
-        defaultCameraHolderY = cameraHolder.localPosition.y;
-        targetCameraY = defaultCameraHolderY;
-        
-        // Lock and hide the cursor
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -303,5 +307,15 @@ public class PlayerMovement : MonoBehaviour
     public bool IsUnderwater()
     {
         return isUnderwater;
+    }
+    
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        // Update the current surface type based on the ground tag
+        if (isGrounded && hit.gameObject.CompareTag("Ground"))
+        {
+            string surfaceType = hit.gameObject.tag;
+            footstepSystem.UpdateSurface(surfaceType);
+        }
     }
 }

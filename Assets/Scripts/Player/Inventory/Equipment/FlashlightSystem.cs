@@ -10,9 +10,16 @@ public class FlashlightSystem : MonoBehaviour
     public Vector3 positionOffset = new Vector3(0.5f, -0.3f, 0.3f); // Bottom right position
     public Vector3 rotationOffset = new Vector3(0, 0, 0);
     
+    [Header("Audio Settings")]
+    public AudioClip toggleOnSound;
+    public AudioClip toggleOffSound;
+    [Range(0f, 1f)]
+    public float toggleVolume = 0.7f;
+    
     private Light flashlight;
     private bool isOn = false;
     private Transform cameraTransform;
+    private AudioSource audioSource;
     
     private void Start()
     {
@@ -34,6 +41,12 @@ public class FlashlightSystem : MonoBehaviour
         flashlightObj.transform.localPosition = positionOffset;
         flashlightObj.transform.localRotation = Quaternion.Euler(rotationOffset);
         
+        // Setup audio source
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 1f; // 3D sound
+        audioSource.volume = toggleVolume;
+        
         // Start with flashlight off
         flashlight.enabled = false;
     }
@@ -45,6 +58,16 @@ public class FlashlightSystem : MonoBehaviour
         {
             isOn = !isOn;
             flashlight.enabled = isOn;
+            
+            // Play appropriate toggle sound
+            if (audioSource != null)
+            {
+                AudioClip clipToPlay = isOn ? toggleOnSound : toggleOffSound;
+                if (clipToPlay != null)
+                {
+                    audioSource.PlayOneShot(clipToPlay, toggleVolume);
+                }
+            }
         }
     }
 }
