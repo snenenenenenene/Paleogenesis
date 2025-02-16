@@ -582,8 +582,38 @@ public class CitySceneGenerator : EditorWindow
         
         // Add audio components
         player.AddComponent<AudioListener>();
-        player.AddComponent<FootstepSystem>();
-        player.AddComponent<FootstepLoader>(); // This will handle loading the sounds
+        FootstepSystem footstepSystem = player.AddComponent<FootstepSystem>();
+        
+        // Set up default rock footstep sounds
+        string rockWalkPath = "Assets/Audio/Footsteps/Footsteps_Rock/Footsteps_Rock_Walk";
+        List<AudioClip> rockSounds = new List<AudioClip>();
+        
+        for (int i = 1; i <= 9; i++)
+        {
+            string filename = $"{rockWalkPath}/Footsteps_Rock_Walk_0{i}.wav";
+            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(filename);
+            if (clip != null)
+            {
+                rockSounds.Add(clip);
+            }
+        }
+        
+        if (rockSounds.Count > 0)
+        {
+            footstepSystem.footstepSounds = new FootstepSystem.FootstepSoundSet[]
+            {
+                new FootstepSystem.FootstepSoundSet
+                {
+                    surfaceTag = "Ground",
+                    clips = rockSounds.ToArray()
+                }
+            };
+            Debug.Log($"Loaded {rockSounds.Count} rock footstep sounds as default ground sounds");
+        }
+        else
+        {
+            Debug.LogWarning("Could not load any rock footstep sounds");
+        }
         
         // Create player model
         GameObject playerModel = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -602,6 +632,23 @@ public class CitySceneGenerator : EditorWindow
         Camera camera = cameraObj.AddComponent<Camera>();
         camera.nearClipPlane = 0.01f;
         camera.farClipPlane = 1000f;
+        
+        // Create UI Canvas for crosshair
+        GameObject canvasObj = new GameObject("PlayerUI");
+        Canvas canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvasObj.AddComponent<CanvasScaler>();
+        canvasObj.AddComponent<GraphicRaycaster>();
+        
+        // Add CrosshairSystem
+        CrosshairSystem crosshair = canvasObj.AddComponent<CrosshairSystem>();
+        crosshair.interactionRange = 3f;
+        crosshair.crosshairSize = new Vector2(32, 32);
+        crosshair.crosshairColor = Color.white;
+        crosshair.interactableLayer = LayerMask.GetMask("Interactable");
+        
+        // Make canvas a child of the player
+        canvasObj.transform.SetParent(player.transform);
 
         return player;
     }
